@@ -1,0 +1,86 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+import warnings 
+warnings.filterwarnings("ignore")
+
+# Load the dataset
+df = pd.read_csv(r"C:\Users\Vaibhav\Downloads\1_boston_housing.csv")
+
+# Split features and target variable
+X = df.drop(columns=['MEDV'])
+y = df['MEDV']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
+
+# Scale the features
+mms = MinMaxScaler()
+X_train_scaled = mms.fit_transform(X_train)
+X_test_scaled = mms.transform(X_test)
+
+# Build the neural network model
+model = Sequential()
+model.add(Dense(128, input_shape=(X_train.shape[1],), activation='relu', name='dense_1'))
+model.add(Dense(64, activation='relu', name='dense_2'))
+model.add(Dense(1, activation='linear', name='dense_output'))
+model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+model.summary()
+
+# Train the model
+history = model.fit(X_train_scaled, y_train, epochs=100, validation_split=0.05, verbose=1)
+
+# Evaluate the model
+mse_nn, mae_nn = model.evaluate(X_test_scaled, y_test)
+print('Mean squared error on test data: ', mse_nn)
+print('Mean absolute error on test data: ', mae_nn)
+
+# Function to predict value for given input data
+def predict_value(model, scaler, input_data):
+    input_data_scaled = scaler.transform(input_data)
+    return model.predict(input_data_scaled)
+
+# Visualize predictions vs. actual values for the test set
+predictions_test = predict_value(model, mms, X_test_scaled)
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, predictions_test, color='blue')
+plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='red')
+plt.xlabel('Actual Values')
+plt.ylabel('Predicted Values')
+plt.title('Predicted vs. Actual Values (Test Set)')
+plt.grid(True)
+plt.show()
+
+# Plot training and validation loss over epochs
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+epochs = range(1, len(loss) + 1)
+plt.figure()
+plt.plot(epochs, loss, 'bo', label='Training loss')
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+# Loop for dynamic input
+while True:
+    pred_input = input("Do you want to predict the value? (yes/no): ").lower()
+    if pred_input != 'yes':
+        break
+    # Get input from the user
+    input_data = []
+    for feature in X.columns:
+        value = float(input("Enter value for {}: ".format(feature)))
+        input_data.append(value)
+
+    # Predict using the model
+    prediction = predict_value(model, mms, np.array(input_data).reshape(1, -1))
+
+    # Display prediction
+    print("Predicted Value:", prediction[0][0])
